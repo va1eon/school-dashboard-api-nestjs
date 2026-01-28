@@ -20,6 +20,15 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+
+		/* My settings */
+		"strict": true,
+		"allowImportingTsExtensions": false,
+		"paths": {
+			"@/*": ["src/*"],
+			"@/prisma/generated": ["prisma/generated"],
+			"@/prisma/generated/*": ["prisma/generated/*"]
+		}
   }
 }
