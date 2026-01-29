@@ -1,8 +1,892 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/"
+  provider     = "prisma-client"
+  output       = "./generated"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  STUDENT
+  PARENT
+  TEACHER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum HomeworkStatus {
+  ASSIGNED // Назначено
+  IN_PROGRESS // В работе
+  SUBMITTED // Сдано
+  GRADED // Оценено
+  OVERDUE // Просрочено
+  RETURNED // Возвращено на доработку
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  HOMEWORK_ASSIGNED
+  HOMEWORK_DUE
+  HOMEWORK_GRADED
+  GRADE_ADDED
+  GRADE_UPDATED
+  SCHEDULE_CHANGED
+  CHAT_MESSAGE
+  EXAM_REMINDER
+  TEST_REMINDER
+  TASK_REMINDER
+  SYSTEM_ANNOUNCEMENT
+  TEACHER_COMMENT
+}
+
+enum EventType {
+  LESSON // Обычный урок
+  EXAM // Экзамен
+  TEST // Контрольная работа
+  QUIZ // Самостоятельная работа
+  CONSULTATION // Консультация
+  HOLIDAY // Праздник/каникулы
+  EVENT // Мероприятие
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  IMAGE
+  SYSTEM
+}
+
+enum ChatRoomType {
+  CLASS // Чат класса
+  PRIVATE // Личный чат
+  GROUP // Групповой чат
+}
+
+enum GradeType {
+  HOMEWORK // Домашняя работа
+  CLASSWORK // Работа на уроке
+  TEST // Контрольная работа
+  QUIZ // Самостоятельная работа
+  EXAM // Экзамен
+  PROJECT // Проект
+  ORAL // Устный ответ
+  OTHER // Другое
+}
+
+enum AttendanceStatus {
+  PRESENT // Присутствовал
+  ABSENT // Отсутствовал
+  LATE // Опоздал
+  EXCUSED // Уважительная причина
+  SICK // Болеет
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique @db.VarChar(255)
+  password      String     @db.VarChar(255)
+  role          UserRole
+  status        UserStatus @default(PENDING)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  lastLoginAt   DateTime?  @map("last_login_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  profile Profile?
+  student Student?
+  parent  Parent?
+  teacher Teacher?
+  admin   Admin?
+
+  refreshTokens        RefreshToken[]
+  notifications        Notification[]
+  sentMessages         Message[]             @relation("MessageSender")
+  activityLogs         ActivityLog[]
+  notificationSettings NotificationSettings?
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Profile {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @unique @map("user_id") @db.Uuid
+  firstName  String    @map("first_name") @db.VarChar(100)
+  lastName   String    @map("last_name") @db.VarChar(100)
+  middleName String?   @map("middle_name") @db.VarChar(100)
+  phone      String?   @db.VarChar(20)
+  avatar     String?   @db.VarChar(500)
+  birthDate  DateTime? @map("birth_date") @db.Date
+  gender     Gender?
+  address    String?   @db.Text
+  bio        String?   @db.Text
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lastName, firstName])
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model NotificationSettings {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @map("user_id") @db.Uuid
+  emailNotifications  Boolean  @default(true) @map("email_notifications")
+  pushNotifications   Boolean  @default(true) @map("push_notifications")
+  homeworkReminders   Boolean  @default(true) @map("homework_reminders")
+  gradeNotifications  Boolean  @default(true) @map("grade_notifications")
+  chatNotifications   Boolean  @default(true) @map("chat_notifications")
+  scheduleChanges     Boolean  @default(true) @map("schedule_changes")
+  examReminders       Boolean  @default(true) @map("exam_reminders")
+  reminderHoursBefore Int      @default(24) @map("reminder_hours_before")
+  quietHoursStart     String?  @map("quiet_hours_start") @db.VarChar(5) // "22:00"
+  quietHoursEnd       String?  @map("quiet_hours_end") @db.VarChar(5) // "08:00"
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
+}
+
+// ============================================================================
+// STUDENT
+// ============================================================================
+
+model Student {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  classId        String?  @map("class_id") @db.Uuid
+  studentId      String?  @unique @map("student_id") @db.VarChar(50) // Номер ученика
+  enrollmentDate DateTime @default(now()) @map("enrollment_date") @db.Date
+  graduationYear Int?     @map("graduation_year")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class               Class?               @relation(fields: [classId], references: [id], onDelete: SetNull)
+  parents             ParentStudent[]
+  grades              Grade[]
+  homeworkSubmissions HomeworkSubmission[]
+  tasks               Task[]
+  attendance          Attendance[]
+  teacherComments     TeacherComment[]
+
+  @@index([classId])
+  @@index([studentId])
+  @@index([enrollmentDate])
+  @@map("students")
+}
+
+// ============================================================================
+// PARENT
+// ============================================================================
+
+model Parent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  occupation String?  @db.VarChar(200)
+  workplace  String?  @db.VarChar(200)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children ParentStudent[]
+
+  @@map("parents")
+}
+
+model ParentStudent {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @map("parent_id") @db.Uuid
+  studentId String   @map("student_id") @db.Uuid
+  relation  String   @db.VarChar(50) // "мать", "отец", "опекун", "бабушка", etc.
+  isPrimary Boolean  @default(false) @map("is_primary") // Основной контакт
+  canPickup Boolean  @default(true) @map("can_pickup") // Может забирать из школы
+  createdAt DateTime @default(now()) @map("created_at")
+
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+  @@map("parent_students")
+}
+
+// ============================================================================
+// TEACHER
+// ============================================================================
+
+model Teacher {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  employeeId     String?  @unique @map("employee_id") @db.VarChar(50) // Табельный номер
+  qualification  String?  @db.VarChar(200)
+  education      String?  @db.Text
+  specialization String?  @db.VarChar(200)
+  experience     Int? // Стаж в годах
+  hireDate       DateTime @default(now()) @map("hire_date") @db.Date
+  roomNumber     String?  @map("room_number") @db.VarChar(20) // Кабинет
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects        TeacherSubject[]
+  homeClass       Class?           @relation("HomeTeacher")
+  scheduleItems   ScheduleItem[]
+  homeworks       Homework[]
+  grades          Grade[]
+  teacherComments TeacherComment[]
+
+  @@index([employeeId])
+  @@map("teachers")
+}
+
+model TeacherSubject {
+  id        String   @id @default(uuid()) @db.Uuid
+  teacherId String   @map("teacher_id") @db.Uuid
+  subjectId String   @map("subject_id") @db.Uuid
+  isMain    Boolean  @default(false) @map("is_main") // Основной предмет
+  createdAt DateTime @default(now()) @map("created_at")
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId])
+  @@index([teacherId])
+  @@index([subjectId])
+  @@map("teacher_subjects")
+}
+
+// ============================================================================
+// ADMIN
+// ============================================================================
+
+model Admin {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  department  String?  @db.VarChar(200)
+  position    String?  @db.VarChar(200)
+  permissions Json? // Дополнительные разрешения
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
+// ============================================================================
+// CLASS
+// ============================================================================
+
+model Class {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(20) // "5А", "11Б"
+  grade         Int // Номер класса (1-11)
+  letter        String   @db.VarChar(5) // Буква класса ("А", "Б", etc.)
+  academicYear  String   @map("academic_year") @db.VarChar(9) // "2026-2027"
+  homeTeacherId String?  @unique @map("home_teacher_id") @db.Uuid
+  roomNumber    String?  @map("room_number") @db.VarChar(20)
+  maxStudents   Int      @default(30) @map("max_students")
+  description   String?  @db.Text
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  homeTeacher   Teacher?       @relation("HomeTeacher", fields: [homeTeacherId], references: [id], onDelete: SetNull)
+  students      Student[]
+  scheduleItems ScheduleItem[]
+  homeworks     Homework[]
+  chatRoom      ChatRoom?
+
+  @@unique([grade, letter, academicYear])
+  @@index([grade])
+  @@index([academicYear])
+  @@index([isActive])
+  @@map("classes")
+}
+
+// ============================================================================
+// SUBJECT
+// ============================================================================
+
+model Subject {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  shortName   String?  @map("short_name") @db.VarChar(20)
+  description String?  @db.Text
+  color       String?  @db.VarChar(7) // HEX цвет "#4CAF50"
+  icon        String?  @db.VarChar(50) // Название иконки
+  isElective  Boolean  @default(false) @map("is_elective") // Факультатив
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  teachers      TeacherSubject[]
+  scheduleItems ScheduleItem[]
+  homeworks     Homework[]
+  grades        Grade[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("subjects")
+}
+
+// ============================================================================
+// SCHEDULE
+// ============================================================================
+
+model ScheduleItem {
+  id           String    @id @default(uuid()) @db.Uuid
+  classId      String    @map("class_id") @db.Uuid
+  subjectId    String    @map("subject_id") @db.Uuid
+  teacherId    String    @map("teacher_id") @db.Uuid
+  dayOfWeek    DayOfWeek @map("day_of_week")
+  lessonNumber Int       @map("lesson_number") // 1, 2, 3... номер урока
+  startTime    String    @map("start_time") @db.VarChar(5) // "08:30"
+  endTime      String    @map("end_time") @db.VarChar(5) // "09:15"
+  room         String?   @db.VarChar(20)
+  eventType    EventType @default(LESSON) @map("event_type")
+  isRecurring  Boolean   @default(true) @map("is_recurring")
+
+  // Для единичных событий
+  specificDate DateTime? @map("specific_date") @db.Date
+
+  // Период действия расписания
+  validFrom DateTime  @default(now()) @map("valid_from") @db.Date
+  validTo   DateTime? @map("valid_to") @db.Date
+
+  notes       String?  @db.Text
+  isCancelled Boolean  @default(false) @map("is_cancelled")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  class      Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject    Subject      @relation(fields: [subjectId], references: [id])
+  teacher    Teacher      @relation(fields: [teacherId], references: [id])
+  attendance Attendance[]
+
+  @@index([classId])
+  @@index([teacherId])
+  @@index([dayOfWeek])
+  @@index([validFrom, validTo])
+  @@index([specificDate])
+  @@map("schedule_items")
+}
+
+// Настройки времени уроков
+model LessonTime {
+  id            String   @id @default(uuid()) @db.Uuid
+  lessonNumber  Int      @unique @map("lesson_number")
+  startTime     String   @map("start_time") @db.VarChar(5)
+  endTime       String   @map("end_time") @db.VarChar(5)
+  isBreakAfter  Boolean  @default(true) @map("is_break_after")
+  breakDuration Int      @default(10) @map("break_duration") // минуты
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("lesson_times")
+}
+
+// Учебные периоды (четверти/триместры)
+model AcademicPeriod {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100) // "1 четверть", "1 триместр"
+  shortName    String?  @map("short_name") @db.VarChar(20) // "1 чт."
+  periodNumber Int      @map("period_number") // 1, 2, 3, 4
+  startDate    DateTime @map("start_date") @db.Date
+  endDate      DateTime @map("end_date") @db.Date
+  academicYear String   @map("academic_year") @db.VarChar(9) // "2026-2027"
+  isActive     Boolean  @default(false) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([periodNumber, academicYear])
+  @@index([academicYear])
+  @@index([startDate, endDate])
+  @@map("academic_periods")
+}
+
+// ============================================================================
+// HOMEWORK
+// ============================================================================
+
+model Homework {
+  id                  String   @id @default(uuid()) @db.Uuid
+  classId             String   @map("class_id") @db.Uuid
+  subjectId           String   @map("subject_id") @db.Uuid
+  teacherId           String   @map("teacher_id") @db.Uuid
+  title               String   @db.VarChar(500)
+  description         String   @db.Text
+  dueDate             DateTime @map("due_date")
+  assignedDate        DateTime @default(now()) @map("assigned_date")
+  maxScore            Int?     @map("max_score")
+  isGraded            Boolean  @default(true) @map("is_graded") // Оценивается ли
+  attachments         Json? // [{filename, url, size, type}]
+  isPublished         Boolean  @default(true) @map("is_published")
+  allowLateSubmission Boolean  @default(false) @map("allow_late_submission")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  class       Class                @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject     Subject              @relation(fields: [subjectId], references: [id])
+  teacher     Teacher              @relation(fields: [teacherId], references: [id])
+  submissions HomeworkSubmission[]
+
+  @@index([classId])
+  @@index([teacherId])
+  @@index([subjectId])
+  @@index([dueDate])
+  @@index([isPublished])
+  @@map("homeworks")
+}
+
+model HomeworkSubmission {
+  id          String         @id @default(uuid()) @db.Uuid
+  homeworkId  String         @map("homework_id") @db.Uuid
+  studentId   String         @map("student_id") @db.Uuid
+  content     String?        @db.Text
+  attachments Json? // [{filename, url, size, type}]
+  status      HomeworkStatus @default(ASSIGNED)
+  score       Int?
+  maxScore    Int?           @map("max_score")
+  feedback    String?        @db.Text
+  submittedAt DateTime?      @map("submitted_at")
+  gradedAt    DateTime?      @map("graded_at")
+  gradedBy    String?        @map("graded_by") @db.Uuid // Teacher ID
+  attempts    Int            @default(0) // Количество попыток сдачи
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([homeworkId, studentId])
+  @@index([studentId])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("homework_submissions")
+}
+
+// ============================================================================
+// GRADES
+// ============================================================================
+
+model Grade {
+  id          String    @id @default(uuid()) @db.Uuid
+  studentId   String    @map("student_id") @db.Uuid
+  subjectId   String    @map("subject_id") @db.Uuid
+  teacherId   String    @map("teacher_id") @db.Uuid
+  value       Int // Значение оценки (1-5 или другая шкала)
+  maxValue    Int       @default(5) @map("max_value")
+  weight      Float     @default(1.0) // Вес оценки для среднего
+  type        GradeType @default(CLASSWORK)
+  description String?   @db.VarChar(500) // Описание (за что оценка)
+  comment     String?   @db.Text // Комментарий учителя
+  date        DateTime  @default(now()) @db.Date
+  periodId    String?   @map("period_id") @db.Uuid // Ссылка на учебный период
+  isPublished Boolean   @default(true) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+
+  @@index([studentId])
+  @@index([subjectId])
+  @@index([teacherId])
+  @@index([date])
+  @@index([type])
+  @@index([periodId])
+  @@map("grades")
+}
+
+// Комментарии учителя (рекомендации для родителей)
+model TeacherComment {
+  id        String    @id @default(uuid()) @db.Uuid
+  teacherId String    @map("teacher_id") @db.Uuid
+  studentId String    @map("student_id") @db.Uuid
+  subjectId String?   @map("subject_id") @db.Uuid
+  content   String    @db.Text
+  isPrivate Boolean   @default(true) @map("is_private") // Только для родителей
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([createdAt])
+  @@map("teacher_comments")
+}
+
+// ============================================================================
+// TASKS (личные задачи ученика)
+// ============================================================================
+
+model Task {
+  id               String       @id @default(uuid()) @db.Uuid
+  studentId        String       @map("student_id") @db.Uuid
+  title            String       @db.VarChar(500)
+  description      String?      @db.Text
+  dueDate          DateTime?    @map("due_date")
+  dueTime          String?      @map("due_time") @db.VarChar(5) // "14:00"
+  priority         TaskPriority @default(MEDIUM)
+  status           TaskStatus   @default(TODO)
+  category         String?      @db.VarChar(100) // "учёба", "личное", "проект"
+  color            String?      @db.VarChar(7) // HEX цвет
+  sortOrder        Int          @default(0) @map("sort_order")
+  reminder         DateTime? // Напоминание
+  isRecurring      Boolean      @default(false) @map("is_recurring")
+  recurringPattern String?      @map("recurring_pattern") @db.VarChar(50) // "daily", "weekly", etc.
+  completedAt      DateTime?    @map("completed_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([priority])
+  @@map("tasks")
+}
+
+// ============================================================================
+// CHAT
+// ============================================================================
+
+model ChatRoom {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String?      @db.VarChar(200)
+  type        ChatRoomType @default(PRIVATE)
+  classId     String?      @unique @map("class_id") @db.Uuid
+  description String?      @db.Text
+  avatar      String?      @db.VarChar(500)
+  isActive    Boolean      @default(true) @map("is_active")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  class        Class?            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  participants ChatParticipant[]
+  messages     Message[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("chat_rooms")
+}
+
+model ChatParticipant {
+  id                String    @id @default(uuid()) @db.Uuid
+  chatRoomId        String    @map("chat_room_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  role              String    @default("member") @db.VarChar(50) // "admin", "member"
+  joinedAt          DateTime  @default(now()) @map("joined_at")
+  lastReadAt        DateTime? @map("last_read_at")
+  lastReadMessageId String?   @map("last_read_message_id") @db.Uuid
+  isMuted           Boolean   @default(false) @map("is_muted")
+  mutedUntil        DateTime? @map("muted_until")
+  isActive          Boolean   @default(true) @map("is_active")
+
+  // Relations
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+
+  @@unique([chatRoomId, userId])
+  @@index([userId])
+  @@index([chatRoomId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id            String      @id @default(uuid()) @db.Uuid
+  chatRoomId    String      @map("chat_room_id") @db.Uuid
+  senderId      String      @map("sender_id") @db.Uuid
+  content       String      @db.Text
+  type          MessageType @default(TEXT)
+  attachments   Json? // [{filename, url, size, type, thumbnail}]
+  isEdited      Boolean     @default(false) @map("is_edited")
+  isDeleted     Boolean     @default(false) @map("is_deleted")
+  deletedAt     DateTime?   @map("deleted_at")
+  replyToId     String?     @map("reply_to_id") @db.Uuid
+  forwardedFrom String?     @map("forwarded_from") @db.Uuid
+  metadata      Json? // Дополнительные данные
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  chatRoom ChatRoom      @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender   User          @relation("MessageSender", fields: [senderId], references: [id])
+  replyTo  Message?      @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies  Message[]     @relation("MessageReplies")
+  readBy   MessageRead[]
+
+  @@index([chatRoomId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+model MessageRead {
+  id        String   @id @default(uuid()) @db.Uuid
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  readAt    DateTime @default(now()) @map("read_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  type       NotificationType
+  title      String           @db.VarChar(500)
+  content    String           @db.Text
+  data       Json? // Дополнительные данные {entityId, entityType, etc}
+  link       String?          @db.VarChar(500) // URL для перехода
+  isRead     Boolean          @default(false) @map("is_read")
+  readAt     DateTime?        @map("read_at")
+  isArchived Boolean          @default(false) @map("is_archived")
+  priority   String           @default("normal") @db.VarChar(20) // "low", "normal", "high"
+  expiresAt  DateTime?        @map("expires_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@index([createdAt])
+  @@index([expiresAt])
+  @@map("notifications")
+}
+
+// ============================================================================
+// ATTENDANCE
+// ============================================================================
+
+model Attendance {
+  id             String           @id @default(uuid()) @db.Uuid
+  studentId      String           @map("student_id") @db.Uuid
+  scheduleItemId String           @map("schedule_item_id") @db.Uuid
+  date           DateTime         @db.Date
+  status         AttendanceStatus @default(PRESENT)
+  note           String?          @db.Text
+  minutesLate    Int?             @map("minutes_late") // Если опоздал
+  recordedBy     String?          @map("recorded_by") @db.Uuid // Кто отметил
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  scheduleItem ScheduleItem @relation(fields: [scheduleItemId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, scheduleItemId, date])
+  @@index([studentId])
+  @@index([scheduleItemId])
+  @@index([date])
+  @@index([status])
+  @@map("attendance")
+}
+
+// ============================================================================
+// FILES
+// ============================================================================
+
+model File {
+  id           String   @id @default(uuid()) @db.Uuid
+  filename     String   @db.VarChar(500)
+  originalName String   @map("original_name") @db.VarChar(500)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  size         Int // В байтах
+  path         String   @db.VarChar(1000) // Путь в хранилище
+  url          String   @db.VarChar(1000)
+  thumbnailUrl String?  @map("thumbnail_url") @db.VarChar(1000)
+  uploadedBy   String   @map("uploaded_by") @db.Uuid
+  folder       String?  @db.VarChar(200) // "homework", "avatars", "chat", etc.
+  isPublic     Boolean  @default(false) @map("is_public")
+  metadata     Json? // Дополнительные данные
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([uploadedBy])
+  @@index([folder])
+  @@index([createdAt])
+  @@map("files")
+}
+
+// ============================================================================
+// SYSTEM & LOGGING
+// ============================================================================
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String   @db.VarChar(100) // "create", "update", "delete", "login", etc.
+  entity    String?  @db.VarChar(100) // "User", "Grade", "Homework", etc.
+  entityId  String?  @map("entity_id") @db.Uuid
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  changes   Json? // Только изменённые поля
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  metadata  Json? // Дополнительные данные
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  value       Json
+  type        String   @default("string") @db.VarChar(50) // "string", "number", "boolean", "json"
+  category    String?  @db.VarChar(100) // "general", "email", "notifications", etc.
+  description String?  @db.Text
+  isPublic    Boolean  @default(false) @map("is_public") // Доступно на фронте
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// Школьная информация
+model SchoolInfo {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String   @db.VarChar(500)
+  shortName         String?  @map("short_name") @db.VarChar(100)
+  address           String?  @db.Text
+  phone             String?  @db.VarChar(50)
+  email             String?  @db.VarChar(255)
+  website           String?  @db.VarChar(500)
+  logo              String?  @db.VarChar(500)
+  director          String?  @db.VarChar(200)
+  foundedYear       Int?     @map("founded_year")
+  timezone          String   @default("Asia/Yakutsk") @db.VarChar(50)
+  locale            String   @default("ru-RU") @db.VarChar(10)
+  academicYearStart Int      @default(9) @map("academic_year_start") // Месяц начала уч. года
+  gradingSystem     String   @default("5-point") @map("grading_system") @db.VarChar(50)
+  metadata          Json?
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("school_info")
+}
+
+// Праздники и выходные дни
+model Holiday {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(200)
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  isRecurring Boolean  @default(false) @map("is_recurring")
+  type        String   @default("holiday") @db.VarChar(50) // "holiday", "vacation", "event"
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([startDate, endDate])
+  @@map("holidays")
 }
