@@ -10,7 +10,7 @@ export const validationSchema = Joi.object({
 	CORS_ORIGIN: Joi.string().default('http://localhost:5173'),
 
 	// Database
-	DATABASE_URL: Joi.string().required(),
+	POSTGRES_URI: Joi.string().required(),
 
 	// JWT
 	JWT_ACCESS_SECRET: Joi.string().required().min(32),
