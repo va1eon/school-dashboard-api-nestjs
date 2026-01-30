@@ -1,10 +1,10 @@
 import {
+	CanActivate,
 	ExecutionContext,
 	ForbiddenException,
 	Injectable,
-	type CanActivate,
 } from '@nestjs/common'
-import type { Reflector } from '@nestjs/core'
+import { Reflector } from '@nestjs/core'
 
 import type { UserRole } from '@/prisma/generated/client'
 

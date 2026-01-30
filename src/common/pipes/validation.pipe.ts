@@ -1,8 +1,8 @@
 import {
 	BadRequestException,
+	ValidationError,
 	ValidationPipe,
-	type ValidationError,
-	type ValidationPipeOptions,
+	ValidationPipeOptions,
 } from '@nestjs/common'
 
 const formatErrors = (errors: ValidationError[]): string[] => {
