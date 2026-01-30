@@ -1,16 +1,14 @@
-import { createParamDecorator, type ExecutionContext } from '@nestjs/common'
+import { createParamDecorator, ExecutionContext } from '@nestjs/common'
 
-import type { User } from '@/prisma/generated/client'
-
-import type { RequestWithUser } from '../types'
+import type { AuthUser, RequestWithUser } from '../types'
 
 export const CurrentUserDecorator = createParamDecorator(
-	(data: keyof User | undefined, ctx: ExecutionContext) => {
+	(data: keyof AuthUser | undefined, ctx: ExecutionContext) => {
 		const request = ctx.switchToHttp().getRequest<RequestWithUser>()
 		const user = request.user
 
 		if (!user) {
-			return null
+			return undefined
 		}
 
 		return data ? user[data] : user
