@@ -3,11 +3,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core'
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 
-import { GlobalExceptionFilter } from '@/common/filters'
-import { JwtAuthGuard, RolesGuard } from '@/common/guards'
-import { LoggingInterceptor, TransformInterceptor } from '@/common/interceptors'
-import { globalValidationPipe } from '@/common/pipes'
-
+import { GlobalExceptionFilter } from './common/filters'
+import { JwtAuthGuard, RolesGuard } from './common/guards'
+import { LoggingInterceptor, TransformInterceptor } from './common/interceptors'
+import { globalValidationPipe } from './common/pipes'
 import {
 	appConfig,
 	databaseConfig,
@@ -15,6 +14,7 @@ import {
 	redisConfig,
 	validationSchema,
 } from './config'
+import { AuthModule } from './modules/auth/auth.module'
 import { PrismaModule } from './modules/prisma/prisma.module'
 
 @Module({
@@ -43,6 +43,7 @@ import { PrismaModule } from './modules/prisma/prisma.module'
 			}),
 		}),
 		PrismaModule,
+		AuthModule,
 	],
 	providers: [
 		// Global exception filter

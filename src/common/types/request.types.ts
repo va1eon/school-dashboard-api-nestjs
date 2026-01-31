@@ -1,6 +1,6 @@
 import type { Request } from 'express'
 
-import type { User } from '@/prisma/generated/client'
+import type { Profile, User } from '@/prisma/generated/client'
 
 export interface RequestMetadata {
 	userAgent?: string
@@ -16,12 +16,7 @@ export interface JwtPayload {
 }
 
 export type AuthUser = Pick<User, 'id' | 'email' | 'role' | 'status'> & {
-	profile?: {
-		firstName: string
-		lastName: string
-		middleName?: string
-		avatar?: string
-	} | null
+	profile?: Pick<Profile, 'firstName' | 'lastName' | 'middleName' | 'avatar'> | null
 }
 
 export interface RequestWithUser extends Request {
