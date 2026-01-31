@@ -18,7 +18,7 @@ export class PrismaService
 	private readonly logger = new Logger(PrismaService.name)
 	private pool: Pool
 
-	constructor(configService: ConfigService) {
+	constructor(private readonly configService: ConfigService) {
 		const connectionString = configService.getOrThrow<string>('database.url')
 
 		const pool = new Pool({
