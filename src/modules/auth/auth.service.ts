@@ -23,7 +23,7 @@ import {
 	LoginDto,
 	RegisterDto,
 	TokensResponseDto,
-	UserType,
+	UserPublicRole,
 } from './dto'
 
 @Injectable()
@@ -42,10 +42,11 @@ export class AuthService {
 		dto: RegisterDto,
 		metadata?: RequestMetadata
 	): Promise<AuthResponseDto> {
-		const { email, password, firstName, lastName, middleName, type } = dto
+		const { email, password, firstName, lastName, middleName, publicRole } = dto
 
 		// Разрешаем только STUDENT и PARENT
-		const role = type === UserType.STUDENT ? UserRole.STUDENT : UserRole.PARENT
+		const role =
+			publicRole === UserPublicRole.STUDENT ? UserRole.STUDENT : UserRole.PARENT
 
 		const existingUser = await this.prismaService.user.findUnique({
 			where: { email },
