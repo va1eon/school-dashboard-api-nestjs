@@ -16,6 +16,7 @@ import {
 } from './config'
 import { AuthModule } from './modules/auth/auth.module'
 import { PrismaModule } from './modules/prisma/prisma.module'
+import { UsersModule } from './modules/users/users.module'
 
 @Module({
 	imports: [
@@ -44,6 +45,7 @@ import { PrismaModule } from './modules/prisma/prisma.module'
 		}),
 		PrismaModule,
 		AuthModule,
+		UsersModule,
 	],
 	providers: [
 		// Global exception filter

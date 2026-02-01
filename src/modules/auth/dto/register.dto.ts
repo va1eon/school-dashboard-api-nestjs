@@ -10,9 +10,9 @@ import {
 	MinLength,
 } from 'class-validator'
 
-export enum UserType {
-	STUDENT = 'student',
-	PARENT = 'parent',
+export enum UserPublicRole {
+	STUDENT = 'STUDENT',
+	PARENT = 'PARENT',
 }
 
 export class RegisterDto {
@@ -70,10 +70,10 @@ export class RegisterDto {
 	middleName?: string
 
 	@ApiProperty({
-		enum: UserType,
-		example: UserType.STUDENT,
-		description: 'Тип пользователя (student или parent)',
+		enum: UserPublicRole,
+		example: UserPublicRole.STUDENT,
+		description: 'Публичная роль пользователя (STUDENT или PARENT)',
 	})
-	@IsEnum(UserType, { message: 'Некорректная роль пользователя' })
-	type!: UserType
+	@IsEnum(UserPublicRole, { message: 'Некорректная роль пользователя' })
+	publicRole!: UserPublicRole
 }
